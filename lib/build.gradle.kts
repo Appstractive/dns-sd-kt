@@ -3,6 +3,7 @@ plugins {
   alias(libs.plugins.android.library)
   id("maven-publish")
   id("signing")
+  alias(libs.plugins.dokka)
 }
 
 group = rootProject.group
@@ -55,9 +56,14 @@ android {
   }
 }
 
+val javadocJar by tasks.registering(Jar::class) {
+  archiveClassifier.set("javadoc")
+  from(tasks.dokkaHtml)
+}
+
 publishing {
-  publications.all {
-    this as MavenPublication
+  publications.withType<MavenPublication> {
+    artifact(javadocJar)
 
     pom {
       name.set(project.name)
@@ -93,6 +99,11 @@ publishing {
       }
     }
   }
+}
+
+val signingTasks = tasks.withType<Sign>()
+tasks.withType<AbstractPublishToMaven>().configureEach {
+  dependsOn(signingTasks)
 }
 
 signing {
