@@ -1,0 +1,16 @@
+
+*.iml
+.gradle
+.idea
+.DS_Store
+build
+*/build
+captures
+.externalNativeBuild
+.cxx
+local.properties
+xcuserdata/
+Pods/
+*.jks
+*yarn.lock
+key.txt
