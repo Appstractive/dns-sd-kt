@@ -100,9 +100,9 @@ discoverServices("_myservice._tcp").collect {
 
 This repository contains a sample compose multiplatform application to demonstrate the usage on the platforms Android, iOS and Desktop JVM.
 
-| Android                                                                  | iOS                                                              | Desktop JVM                                                                  |
-|--------------------------------------------------------------------------|------------------------------------------------------------------|------------------------------------------------------------------------------|
-| <img src="assets/ss_android.png" alt="Android Screenshot" height="600"/> | <img src="assets/ss_ios.png" alt="iOS Screenshot" height="600"/> | <img src="assets/ss_desktop.png" alt="Desktop JVM Screenshot" height="600"/> |
+| Android                                                                 | iOS                                                             | Desktop JVM                                                                 |
+|-------------------------------------------------------------------------|-----------------------------------------------------------------|-----------------------------------------------------------------------------|
+| <img src="assets/ss_android.png" alt="Android Screenshot" width="200"/> | <img src="assets/ss_ios.png" alt="iOS Screenshot" width="200"/> | <img src="assets/ss_desktop.png" alt="Desktop JVM Screenshot" width="200"/> |
 
 ### Run
 
