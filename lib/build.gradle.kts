@@ -18,12 +18,22 @@ kotlin {
 
   jvm()
 
-  listOf(iosX64(), iosArm64(), iosSimulatorArm64(), macosX64(), macosArm64()).forEach {
-    it.binaries.framework {
-      baseName = "NSD-KT"
-      isStatic = true
-    }
-  }
+  listOf(
+          iosX64(),
+          iosArm64(),
+          iosSimulatorArm64(),
+          macosX64(),
+          macosArm64(),
+          tvosX64(),
+          tvosArm64(),
+          tvosSimulatorArm64(),
+      )
+      .forEach {
+        it.binaries.framework {
+          baseName = "DNS-SD-KT"
+          isStatic = true
+        }
+      }
 
   sourceSets {
     commonMain.dependencies { implementation(libs.kotlin.coroutines) }
