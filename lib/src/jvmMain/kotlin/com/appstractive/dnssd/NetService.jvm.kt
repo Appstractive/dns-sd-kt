@@ -7,6 +7,8 @@ import javax.jmdns.impl.ServiceInfoImpl
 import javax.jmdns.impl.util.ByteWrangler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 
@@ -31,7 +33,9 @@ class JvmNetService(
 
   private val jmDns: JmDNS = JmDNS.create(address, hostName)
 
-  override suspend fun register(timeout: Long) {
+  private val mutex = Mutex()
+
+  override suspend fun register(timeout: Long) = mutex.withLock {
     if (isRegistered.value) {
       return
     }
@@ -44,7 +48,7 @@ class JvmNetService(
     }
   }
 
-  override suspend fun unregister() {
+  override suspend fun unregister() = mutex.withLock {
     if (!isRegistered.value) {
       return
     }

@@ -10,10 +10,10 @@ val service by lazy {
       name = "iOS",
       port = 8080,
       txt =
-      mapOf(
-          "key1" to "value1",
-          "key2" to "value2",
-      ),
+          mapOf(
+              "key1" to "value1",
+              "key2" to "value2",
+          ),
   )
 }
 

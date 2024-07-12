@@ -7,6 +7,7 @@ plugins {
 }
 
 group = rootProject.group
+
 version = rootProject.version
 
 kotlin {
@@ -56,10 +57,11 @@ android {
   }
 }
 
-val javadocJar by tasks.registering(Jar::class) {
-  archiveClassifier.set("javadoc")
-  from(tasks.dokkaHtml)
-}
+val javadocJar by
+    tasks.registering(Jar::class) {
+      archiveClassifier.set("javadoc")
+      from(tasks.dokkaHtml)
+    }
 
 publishing {
   publications.withType<MavenPublication> {
@@ -102,9 +104,8 @@ publishing {
 }
 
 val signingTasks = tasks.withType<Sign>()
-tasks.withType<AbstractPublishToMaven>().configureEach {
-  dependsOn(signingTasks)
-}
+
+tasks.withType<AbstractPublishToMaven>().configureEach { dependsOn(signingTasks) }
 
 signing {
   val signingKey: String by rootProject.extra

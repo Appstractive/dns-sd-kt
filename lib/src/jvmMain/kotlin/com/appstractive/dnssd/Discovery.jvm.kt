@@ -1,13 +1,13 @@
 package com.appstractive.dnssd
 
-import javax.jmdns.JmDNS
-import javax.jmdns.ServiceEvent
-import javax.jmdns.ServiceListener
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.withContext
+import javax.jmdns.JmDNS
+import javax.jmdns.ServiceEvent
+import javax.jmdns.ServiceListener
 
 actual fun discoverServices(type: String): Flow<DiscoveryEvent> = callbackFlow {
   val jmDns = withContext(Dispatchers.IO) { JmDNS.create() }

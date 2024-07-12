@@ -7,6 +7,8 @@ import kotlinx.cinterop.ObjCSignatureOverride
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
 import platform.Foundation.NSNetService
 import platform.Foundation.NSNetServiceDelegateProtocol
@@ -35,12 +37,14 @@ class IosNetService(
 
   private val delegate = NetServiceListener(this)
 
+  private val mutex = Mutex()
+
   init {
     nativeService.delegate = delegate
   }
 
-  override suspend fun register(timeout: Long) {
-    if (isRegistered.value || pendingRegister != null) {
+  override suspend fun register(timeout: Long) = mutex.withLock {
+    if (isRegistered.value) {
       return
     }
 
@@ -57,8 +61,8 @@ class IosNetService(
     }
   }
 
-  override suspend fun unregister() {
-    if (!isRegistered.value || pendingUnregister != null) {
+  override suspend fun unregister() = mutex.withLock {
+    if (!isRegistered.value) {
       return
     }
 
