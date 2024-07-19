@@ -12,7 +12,7 @@ This library implements [Multicast DNS][mdns] and [DNS-Based Service Discovery][
 
 The platform implementations are based on:
 
-- Android: [Network Service Discovery](https://developer.android.com/develop/connectivity/wifi/use-nsd)
+- Android: [Network Service Discovery (NSD)](https://developer.android.com/develop/connectivity/wifi/use-nsd)
 - Apple: [Bonjour](https://developer.apple.com/documentation/foundation/bonjour)
 - JVM: [JmDNS](https://github.com/jmdns/jmdns)
 
