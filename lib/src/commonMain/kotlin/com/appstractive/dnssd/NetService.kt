@@ -24,7 +24,7 @@ interface NetService {
 }
 
 /**
- * Create a new DNS-SD to publish on the network.
+ * Create a new DNS-SD to publish on the network. Make sure to call this one the main thread.
  *
  * @param type the service type (e.g. _example._tcp)
  * @param name the name of the service to publish
