@@ -47,8 +47,10 @@ Add the following permissions to your Info.plist (replace service type with your
 
 ```Xml
 
-<key>NSLocalNetworkUsageDescription</key><string>Required to discover local network devices
-</string><key>NSBonjourServices</key><array>
+<key>NSLocalNetworkUsageDescription</key>
+<string>Required to discover local network devices</string>
+<key>NSBonjourServices</key>
+<array>
 <string>_http._tcp</string>
 </array>
 ```
