@@ -45,7 +45,7 @@ class IosNetService(
     nativeService.delegate = delegate
   }
 
-  override suspend fun register(timeout: Long) =
+  override suspend fun register(timeoutInMs: Long) =
       mutex.withLock {
         if (isRegistered.value) {
           return
@@ -53,7 +53,7 @@ class IosNetService(
 
         try {
           withContext(Dispatchers.Main) {
-            withTimeout(timeout) {
+            withTimeout(timeoutInMs) {
               suspendCancellableCoroutine<Unit> {
                 pendingRegister = it
 
@@ -63,7 +63,7 @@ class IosNetService(
           }
         } catch (ex: TimeoutCancellationException) {
           pendingRegister = null
-          throw NetServiceRegisterException("NsdServiceInfo register timeout")
+          throw NetServiceRegisterException("NsdServiceInfo register timeoutInMs")
         }
       }
 
@@ -159,8 +159,8 @@ actual fun createNetService(
                 )
                 .apply {
                   if (!setTXTRecordData(
-                      NSNetService.dataFromTXTRecordDictionary(txt.mapValues { it.value }))) {
-                    println("Error setting TXT record data")
+                      NSNetService.dataFromTXTRecordDictionary(txt.mapValues { it.value }),)) {
+                    throw NetServiceRegisterException("Failed to set txt attributes: $txt")
                   }
                 },
     )
