@@ -37,8 +37,8 @@ Add the following permissions to your manifest:
 
 ```Xml
 
-<uses-permission android:name="android.permission.INTERNET" /><uses-permission
-android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
 ```
 
 #### Apple
