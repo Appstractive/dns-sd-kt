@@ -9,7 +9,7 @@
 ![badge][badge-jvm]
 
 This library implements [Multicast DNS][mdns] and [DNS-Based Service Discovery][dnssd] to provide
-zero-configuration operations for kotlin multiplatform. It lets you announce and find services in a
+zero-configuration operations for Kotlin Multiplatform. It lets you announce and find services in a
 .local domain.
 
 The platform implementations are based on:
