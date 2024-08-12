@@ -14,8 +14,7 @@ zero-configuration operations for Kotlin Multiplatform. It lets you announce and
 
 The platform implementations are based on:
 
--
-Android: [Network Service Discovery (NSD)](https://developer.android.com/develop/connectivity/wifi/use-nsd)
+- Android: [Network Service Discovery (NSD)](https://developer.android.com/develop/connectivity/wifi/use-nsd)
 - Apple: [Bonjour](https://developer.apple.com/documentation/foundation/bonjour)
 - JVM: [JmDNS](https://github.com/jmdns/jmdns)
 
