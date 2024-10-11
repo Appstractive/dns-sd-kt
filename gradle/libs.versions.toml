@@ -5,7 +5,7 @@ compose = "1.6.11"
 agp = "8.2.2"
 androidx-appcompat = "1.7.0"
 androidx-activityCompose = "1.9.2"
-android-startup = "1.1.1"
+android-startup = "1.2.0"
 
 kotlin-coroutines = "1.8.0"
 
