@@ -45,6 +45,7 @@ kotlin {
     commonTest.dependencies { implementation(kotlin("test")) }
 
     androidMain.dependencies {
+      implementation(projects.libJava)
       implementation(libs.android.startup)
       implementation(libs.androidx.appcompat)
     }
@@ -59,7 +60,10 @@ android {
   namespace = "com.appstractive.dnssd"
   compileSdk = 35
 
-  defaultConfig { minSdk = 21 }
+  defaultConfig {
+    minSdk = 21
+    consumerProguardFiles.add(file("consumer-rules.pro"))
+  }
   sourceSets["main"].apply {
     manifest.srcFile("src/androidMain/AndroidManifest.xml")
     res.srcDirs("src/commonMain/resources")

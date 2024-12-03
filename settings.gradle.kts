@@ -4,7 +4,7 @@ rootProject.name = "DNS-SD"
 
 include(":sample:composeApp")
 
-include(":lib")
+include(":lib", ":lib-java")
 
 project(":lib").name = "dns-sd-kt"
 
