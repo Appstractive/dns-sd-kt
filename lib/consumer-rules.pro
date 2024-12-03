@@ -1,0 +1,3 @@
+-keep class com.appstractive.dnssd.MDNSDiscover$Result {*;}
+-keep class com.appstractive.dnssd.MDNSDiscover$TXT {*;}
+-keep class com.appstractive.dnssd.MDNSDiscover {*;}
