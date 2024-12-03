@@ -1,4 +1,5 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
   alias(libs.plugins.multiplatform)
@@ -9,7 +10,16 @@ plugins {
 }
 
 kotlin {
-  androidTarget { compilations.all { kotlinOptions { jvmTarget = "17" } } }
+  compilerOptions {
+    freeCompilerArgs.add("-opt-in=kotlin.uuid.ExperimentalUuidApi")
+  }
+
+  androidTarget {
+    publishAllLibraryVariants()
+    compilerOptions {
+      jvmTarget.set(JvmTarget.JVM_1_8)
+    }
+  }
 
   jvm()
 
@@ -62,11 +72,11 @@ kotlin {
 
 android {
   namespace = "com.appstractive.dnssd"
-  compileSdk = 34
+  compileSdk = 35
 
   defaultConfig {
-    minSdk = 24
-    targetSdk = 34
+    minSdk = 21
+    targetSdk = 35
 
     applicationId = "com.appstractive.dnssd.androidApp"
     versionCode = 1
@@ -78,10 +88,16 @@ android {
     resources.srcDirs("src/commonMain/resources")
   }
   compileOptions {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    isCoreLibraryDesugaringEnabled = true
+
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
   }
   buildFeatures { compose = true }
+}
+
+dependencies {
+  coreLibraryDesugaring(libs.desugaring)
 }
 
 compose.desktop {

@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
   alias(libs.plugins.multiplatform)
   alias(libs.plugins.android.library)
@@ -13,7 +15,9 @@ version = rootProject.version
 kotlin {
   androidTarget {
     publishAllLibraryVariants()
-    compilations.all { kotlinOptions { jvmTarget = "17" } }
+    compilerOptions {
+      jvmTarget.set(JvmTarget.JVM_1_8)
+    }
   }
 
   jvm()
@@ -53,18 +57,24 @@ kotlin {
 
 android {
   namespace = "com.appstractive.dnssd"
-  compileSdk = 34
+  compileSdk = 35
 
-  defaultConfig { minSdk = 24 }
+  defaultConfig { minSdk = 21 }
   sourceSets["main"].apply {
     manifest.srcFile("src/androidMain/AndroidManifest.xml")
     res.srcDirs("src/commonMain/resources")
     resources.srcDirs("src/commonMain/resources")
   }
   compileOptions {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    isCoreLibraryDesugaringEnabled = true
+
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
   }
+}
+
+dependencies {
+  coreLibraryDesugaring(libs.desugaring)
 }
 
 val javadocJar by
