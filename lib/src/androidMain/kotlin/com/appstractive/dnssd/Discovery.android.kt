@@ -36,9 +36,26 @@ actual fun discoverServices(type: String): Flow<DiscoveryEvent> = callbackFlow {
 
             override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
               resolveSemaphore.release()
+
+              val service: DiscoveredService =
+                  when {
+                    VERSION.SDK_INT >= VERSION_CODES.M -> serviceInfo.toCommon()
+                    else -> {
+                      val resolvedData =
+                          MDNSDiscover.resolve(
+                              "${serviceInfo.serviceName}${serviceInfo.serviceType}.local",
+                              5000,
+                          )
+
+                      val txtRecords = resolvedData?.txt?.dict?.toByteMap()
+
+                      serviceInfo.toCommon(txtRecords)
+                    }
+                  }
+
               trySend(
                   DiscoveryEvent.Resolved(
-                      service = serviceInfo.toCommon(),
+                      service = service,
                   ) {
                     resolveService(serviceInfo)
                   },
@@ -90,14 +107,14 @@ actual fun discoverServices(type: String): Flow<DiscoveryEvent> = callbackFlow {
   }
 }
 
-internal fun NsdServiceInfo.toCommon(): DiscoveredService =
+internal fun NsdServiceInfo.toCommon(txt: Map<String, ByteArray?>? = null): DiscoveredService =
     DiscoveredService(
         name = serviceName,
         addresses = getAddresses(),
         host = getHostName() ?: "",
         type = serviceType,
         port = port,
-        txt = attributes ?: emptyMap(),
+        txt = txt ?: attributes ?: emptyMap(),
     )
 
 private fun NsdServiceInfo.getAddresses(): List<String> {
@@ -115,3 +132,6 @@ private fun NsdServiceInfo.getHostName(): String? {
 
   return host?.canonicalHostName
 }
+
+fun Map<String?, String?>.toByteMap(): Map<String, ByteArray?> =
+    filter { (key, _) -> key != null }.mapKeys { it.key!! }.mapValues { it.value?.toByteArray() }
