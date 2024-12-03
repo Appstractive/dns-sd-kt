@@ -133,15 +133,12 @@ actual fun createNetService(
             },
     )
 
-private fun getLocalAddresses(): List<InetAddress> {
-  val addresses = mutableListOf<InetAddress>()
-  val interfaces = NetworkInterface.getNetworkInterfaces()
+private fun getLocalAddresses(): List<InetAddress> = buildList {
+    val interfaces = NetworkInterface.getNetworkInterfaces()
 
-  for (netInterface in interfaces) {
-    addresses.addAll(
-        netInterface.inetAddresses.toList().filter { it.isSiteLocalAddress }.toList(),
-    )
-  }
-
-  return addresses
+    for (netInterface in interfaces) {
+        addAll(
+            netInterface.inetAddresses.toList().filter { it.isSiteLocalAddress }.toList(),
+        )
+    }
 }

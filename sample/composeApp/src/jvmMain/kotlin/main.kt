@@ -6,11 +6,12 @@ import com.appstractive.dnssd.App
 import com.appstractive.dnssd.SERVICE_TYPE
 import com.appstractive.dnssd.createNetService
 import java.awt.Dimension
+import kotlin.uuid.Uuid
 
 val service by lazy {
   createNetService(
       type = SERVICE_TYPE,
-      name = "jvm",
+      name = "jvm-${Uuid.random()}",
       port = 8080,
       txt =
           mapOf(

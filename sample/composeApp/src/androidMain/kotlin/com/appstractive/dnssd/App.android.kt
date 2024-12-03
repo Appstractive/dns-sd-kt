@@ -4,13 +4,14 @@ import android.app.Application
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import kotlin.uuid.Uuid
 
 class AndroidApp : Application() {
   companion object {
     internal val service by lazy {
       createNetService(
           type = SERVICE_TYPE,
-          name = "android",
+          name = "android-${Uuid.random()}",
           port = 8080,
           txt =
               mapOf(

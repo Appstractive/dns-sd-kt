@@ -3,11 +3,12 @@ import com.appstractive.dnssd.App
 import com.appstractive.dnssd.SERVICE_TYPE
 import com.appstractive.dnssd.createNetService
 import platform.UIKit.UIViewController
+import kotlin.uuid.Uuid
 
 val service by lazy {
   createNetService(
       type = SERVICE_TYPE,
-      name = "iOS",
+      name = "iOS-${Uuid.random()}",
       port = 8080,
       txt =
           mapOf(

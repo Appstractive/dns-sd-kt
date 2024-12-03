@@ -105,7 +105,7 @@ private fun NsdServiceInfo.getAddresses(): List<String> {
     return hostAddresses.mapNotNull { it.hostAddress }
   }
 
-  return host.hostAddress?.let { listOf(it) } ?: emptyList()
+  return host?.hostAddress?.let { listOf(it) } ?: emptyList()
 }
 
 private fun NsdServiceInfo.getHostName(): String? {
@@ -113,5 +113,5 @@ private fun NsdServiceInfo.getHostName(): String? {
     return hostAddresses.firstOrNull()?.canonicalHostName
   }
 
-  return host.canonicalHostName
+  return host?.canonicalHostName
 }
