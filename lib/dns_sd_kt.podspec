@@ -1,6 +1,6 @@
 Pod::Spec.new do |spec|
     spec.name                     = 'dns_sd_kt'
-    spec.version                  = '1.0.3'
+    spec.version                  = '1.0.4'
     spec.homepage                 = 'Link to the Shared Module homepage'
     spec.source                   = { :http=> ''}
     spec.authors                  = ''

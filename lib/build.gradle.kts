@@ -45,7 +45,7 @@ kotlin {
     commonTest.dependencies { implementation(kotlin("test")) }
 
     androidMain.dependencies {
-      implementation(projects.libJava)
+      implementation(projects.dnsSdJava)
       implementation(libs.android.startup)
       implementation(libs.androidx.appcompat)
     }
