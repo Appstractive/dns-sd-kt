@@ -25,45 +25,73 @@ actual fun discoverServices(type: String): Flow<DiscoveryEvent> = callbackFlow {
     multicastLock.acquire()
 
     fun resolveService(serviceInfo: NsdServiceInfo) {
-        thread {
-            resolveSemaphore.acquire()
-            nsdManager.resolveService(
-                serviceInfo,
-                object : NsdManager.ResolveListener {
-                    override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
-                        println("onResolveFailed: $errorCode")
-                        resolveSemaphore.release()
+        fun onResolved() {
+            resolveSemaphore.release()
+
+            val service: DiscoveredService =
+                when {
+                    VERSION.SDK_INT >= VERSION_CODES.M -> serviceInfo.toCommon()
+                    else -> {
+                        val resolvedData =
+                            MDNSDiscover.resolve(
+                                "${serviceInfo.serviceName}${serviceInfo.serviceType}.local",
+                                5000,
+                            )
+
+                        val txtRecords = resolvedData?.txt?.dict?.toByteMap()
+
+                        serviceInfo.toCommon(txtRecords)
                     }
+                }
 
-                    override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
-                        resolveSemaphore.release()
-
-                        val service: DiscoveredService =
-                            when {
-                                VERSION.SDK_INT >= VERSION_CODES.M -> serviceInfo.toCommon()
-                                else -> {
-                                    val resolvedData =
-                                        MDNSDiscover.resolve(
-                                            "${serviceInfo.serviceName}${serviceInfo.serviceType}.local",
-                                            5000,
-                                        )
-
-                                    val txtRecords = resolvedData?.txt?.dict?.toByteMap()
-
-                                    serviceInfo.toCommon(txtRecords)
-                                }
-                            }
-
-                        trySend(
-                            DiscoveryEvent.Resolved(
-                                service = service,
-                            ) {
-                                resolveService(serviceInfo)
-                            },
-                        )
-                    }
+            trySend(
+                DiscoveryEvent.Resolved(
+                    service = service,
+                ) {
+                    resolveService(serviceInfo)
                 },
             )
+        }
+
+        thread {
+            resolveSemaphore.acquire()
+            if (VERSION.SDK_INT >= VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                nsdManager.registerServiceInfoCallback(
+                    serviceInfo, { it.run() }, object : NsdManager.ServiceInfoCallback {
+                        override fun onServiceInfoCallbackRegistrationFailed(errorCode: Int) {
+                            println("onServiceInfoCallbackRegistrationFailed: $errorCode")
+                            resolveSemaphore.release()
+                        }
+
+                        override fun onServiceUpdated(serviceInfo: NsdServiceInfo) {
+                            onResolved()
+                        }
+
+                        override fun onServiceLost() {
+                            println("onServiceLost")
+                        }
+
+                        override fun onServiceInfoCallbackUnregistered() {
+                            println("onServiceInfoCallbackUnregistered")
+                        }
+
+                    }
+                )
+            } else {
+                nsdManager.resolveService(
+                    serviceInfo,
+                    object : NsdManager.ResolveListener {
+                        override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
+                            println("onResolveFailed: $errorCode")
+                            resolveSemaphore.release()
+                        }
+
+                        override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
+                            onResolved()
+                        }
+                    },
+                )
+            }
         }
     }
 
