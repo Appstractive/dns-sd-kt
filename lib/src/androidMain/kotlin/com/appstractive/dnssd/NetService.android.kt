@@ -120,7 +120,7 @@ actual fun createNetService(
         nativeService =
             NsdServiceInfo().apply {
               serviceName = name
-              serviceType = type
+              serviceType = type.stripLocal
               if (VERSION.SDK_INT >= VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 hostAddresses = addresses?.map { InetAddress.getByName(it) } ?: getLocalAddresses()
               } else {
