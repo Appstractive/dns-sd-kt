@@ -43,7 +43,7 @@ actual fun discoverServices(type: String): Flow<DiscoveryEvent> = callbackFlow {
                     else -> {
                       val resolvedData =
                           MDNSDiscover.resolve(
-                              "${serviceInfo.serviceName}${serviceInfo.serviceType}.local",
+                              "${serviceInfo.serviceName}${serviceInfo.serviceType}".localQualified,
                               5000,
                           )
 

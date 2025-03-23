@@ -1,13 +1,13 @@
 [versions]
 
-kotlin = "2.1.10"
-compose = "1.7.1"
+kotlin = "2.1.20"
+compose = "1.7.3"
 agp = "8.7.3"
 androidx-appcompat = "1.7.0"
-androidx-activityCompose = "1.9.3"
+androidx-activityCompose = "1.10.1"
 android-startup = "1.2.0"
 
-kotlin-coroutines = "1.9.0"
+kotlin-coroutines = "1.10.1"
 
 desugaring = "2.1.5"
 
@@ -17,7 +17,7 @@ androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "a
 androidx-activityCompose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activityCompose" }
 android-startup = { module = "androidx.startup:startup-runtime", version.ref = "android-startup" }
 kotlin-coroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlin-coroutines" }
-jmdns = { module = "org.jmdns:jmdns", version = "3.6.0" }
+jmdns = { module = "org.jmdns:jmdns", version = "3.6.1" }
 desugaring = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugaring" }
 
 [plugins]

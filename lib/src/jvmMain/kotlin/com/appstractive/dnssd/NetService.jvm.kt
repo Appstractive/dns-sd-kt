@@ -35,13 +35,13 @@ class JvmNetService(
 
   private val mutex = Mutex()
 
-  override suspend fun register(timeout: Long) = mutex.withLock {
+  override suspend fun register(timeoutInMs: Long) = mutex.withLock {
     if (isRegistered.value) {
       return
     }
 
     withContext(Dispatchers.IO) {
-      withTimeout(timeout) {
+      withTimeout(timeoutInMs) {
         jmDns.registerService(nativeService)
         isRegistered.value = (nativeService as? ServiceInfoImpl)?.dns != null
       }
@@ -72,7 +72,7 @@ actual fun createNetService(
     JvmNetService(
         nativeService =
             ServiceInfo.create(
-                "$type.local.",
+                type.localQualified,
                 name,
                 port,
                 weight,

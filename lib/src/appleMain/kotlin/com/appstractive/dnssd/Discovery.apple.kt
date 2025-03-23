@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.withContext
 import platform.Foundation.NSData
+import platform.Foundation.NSLog
 import platform.Foundation.NSNetService
 import platform.Foundation.NSNetServiceBrowser
 import platform.Foundation.NSNetServiceBrowserDelegateProtocol
@@ -33,9 +34,6 @@ import platform.posix.sa_family_t
 import platform.posix.sockaddr_in
 import platform.posix.sockaddr_in6
 
-internal val String.qualified
-  get() = if (this.endsWith(".")) this else "$this."
-
 actual fun discoverServices(type: String): Flow<DiscoveryEvent> = callbackFlow {
   val serviceBrowser = withContext(Dispatchers.Main) { NSNetServiceBrowser() }
   serviceBrowser.includesPeerToPeer = true
@@ -44,7 +42,7 @@ actual fun discoverServices(type: String): Flow<DiscoveryEvent> = callbackFlow {
     service.delegate =
         object : NSObject(), NSNetServiceDelegateProtocol {
           override fun netServiceDidResolveAddress(sender: NSNetService) {
-            println("netServiceDidResolveAddress")
+            NSLog("netServiceDidResolveAddress")
             service.delegate = null
             trySend(
                 DiscoveryEvent.Resolved(
@@ -62,17 +60,17 @@ actual fun discoverServices(type: String): Flow<DiscoveryEvent> = callbackFlow {
       object : NSObject(), NSNetServiceBrowserDelegateProtocol {
 
         override fun netServiceBrowser(browser: NSNetServiceBrowser, didNotSearch: Map<Any?, *>) {
-          println(
+            NSLog(
               "NSNetServiceBrowser search error ${didNotSearch.entries.joinToString { error -> "${error.key}:${error.value}" }}",
           )
         }
 
         override fun netServiceBrowserWillSearch(browser: NSNetServiceBrowser) {
-          println("netServiceBrowserWillSearch")
+            NSLog("netServiceBrowserWillSearch")
         }
 
         override fun netServiceBrowserDidStopSearch(browser: NSNetServiceBrowser) {
-          println("netServiceBrowserDidStopSearch")
+            NSLog("netServiceBrowserDidStopSearch")
         }
 
         @Suppress("CONFLICTING_OVERLOADS", "PARAMETER_NAME_CHANGED_ON_OVERRIDE")
@@ -82,7 +80,7 @@ actual fun discoverServices(type: String): Flow<DiscoveryEvent> = callbackFlow {
             didFindDomain: String,
             moreComing: Boolean
         ) {
-          println("didFindDomain: $didFindDomain")
+            NSLog("didFindDomain: $didFindDomain")
         }
 
         @Suppress("CONFLICTING_OVERLOADS", "PARAMETER_NAME_CHANGED_ON_OVERRIDE")
@@ -92,7 +90,7 @@ actual fun discoverServices(type: String): Flow<DiscoveryEvent> = callbackFlow {
             didRemoveDomain: String,
             moreComing: Boolean
         ) {
-          println("didRemoveDomain: $didRemoveDomain")
+            NSLog("didRemoveDomain: $didRemoveDomain")
         }
 
         @Suppress("CONFLICTING_OVERLOADS", "PARAMETER_NAME_CHANGED_ON_OVERRIDE")
@@ -102,7 +100,6 @@ actual fun discoverServices(type: String): Flow<DiscoveryEvent> = callbackFlow {
             didFindService: NSNetService,
             moreComing: Boolean
         ) {
-          println("didFindService")
           trySend(
               DiscoveryEvent.Discovered(
                   service = didFindService.toCommon(),
@@ -119,7 +116,6 @@ actual fun discoverServices(type: String): Flow<DiscoveryEvent> = callbackFlow {
             didRemoveService: NSNetService,
             moreComing: Boolean
         ) {
-          println("didRemoveService")
           trySend(
               DiscoveryEvent.Removed(
                   service = didRemoveService.toCommon(),
@@ -128,10 +124,8 @@ actual fun discoverServices(type: String): Flow<DiscoveryEvent> = callbackFlow {
         }
       }
 
-  // serviceBrowser.searchForRegistrationDomains()
-  println("Find ${type.qualified}")
   withContext(Dispatchers.Main) {
-    serviceBrowser.searchForServicesOfType(type = type.qualified, inDomain = "local.")
+    serviceBrowser.searchForServicesOfType(type = type.stripLocal.qualified, inDomain = "local.")
   }
 
   awaitClose { serviceBrowser.stop() }
@@ -151,7 +145,7 @@ private fun NSNetService.toCommon(): DiscoveredService =
                 val data: Map<Any?, *>? = NSNetService.dictionaryFromTXTRecordData(it)
 
                 data?.forEach { (key, value) ->
-                  println("Service attributes: $key=$value")
+                  NSLog("Service attributes: $key=$value")
                   if (key is String && value is NSData?) {
                     put(key, value?.toByteArray())
                   }

@@ -39,14 +39,14 @@ class AndroidNetService(
 
   private val mutex = Mutex()
 
-  override suspend fun register(timeout: Long) =
+  override suspend fun register(timeoutInMs: Long) =
       mutex.withLock {
         if (isRegistered.value) {
           return
         }
 
         try {
-          withTimeout(timeout) {
+          withTimeout(timeoutInMs) {
             suspendCancellableCoroutine<Unit> {
               pendingRegister = it
               nsdManager.registerService(
@@ -134,11 +134,11 @@ actual fun createNetService(
     )
 
 private fun getLocalAddresses(): List<InetAddress> = buildList {
-    val interfaces = NetworkInterface.getNetworkInterfaces()
+  val interfaces = NetworkInterface.getNetworkInterfaces()
 
-    for (netInterface in interfaces) {
-        addAll(
-            netInterface.inetAddresses.toList().filter { it.isSiteLocalAddress }.toList(),
-        )
-    }
+  for (netInterface in interfaces) {
+    addAll(
+        netInterface.inetAddresses.toList().filter { it.isSiteLocalAddress }.toList(),
+    )
+  }
 }

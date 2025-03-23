@@ -43,10 +43,10 @@ actual fun discoverServices(type: String): Flow<DiscoveryEvent> = callbackFlow {
         }
       }
 
-  jmDns.addServiceListener("${type}.local.", listener)
+  jmDns.addServiceListener(type.localQualified, listener)
 
   awaitClose {
-    jmDns.removeServiceListener("${type}.local.", listener)
+    jmDns.removeServiceListener(type.localQualified, listener)
     jmDns.close()
   }
 }
