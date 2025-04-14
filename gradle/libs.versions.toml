@@ -7,7 +7,7 @@ androidx-appcompat = "1.7.0"
 androidx-activityCompose = "1.10.1"
 android-startup = "1.2.0"
 
-kotlin-coroutines = "1.10.1"
+kotlin-coroutines = "1.10.2"
 
 desugaring = "2.1.5"
 
