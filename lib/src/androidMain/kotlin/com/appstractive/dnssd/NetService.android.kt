@@ -56,7 +56,7 @@ class AndroidNetService(
               )
             }
           }
-        } catch (ex: TimeoutCancellationException) {
+        } catch (_: TimeoutCancellationException) {
           pendingRegister = null
           throw NetServiceRegisterException("NsdServiceInfo register timeout")
         }

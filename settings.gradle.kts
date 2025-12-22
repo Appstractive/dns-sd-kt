@@ -4,12 +4,12 @@ rootProject.name = "DNS-SD"
 
 include(":sample:composeApp")
 
-include(":lib", ":lib-java")
+include(":lib")
 
 project(":lib").name = "dns-sd-kt"
-project(":lib-java").name = "dns-sd-java"
 
 pluginManagement {
+  includeBuild("build-logic")
   repositories {
     google()
     gradlePluginPortal()

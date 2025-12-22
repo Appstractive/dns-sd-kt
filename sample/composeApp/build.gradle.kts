@@ -72,11 +72,11 @@ kotlin {
 
 android {
   namespace = "com.appstractive.dnssd"
-  compileSdk = 35
+  compileSdk = 36
 
   defaultConfig {
-    minSdk = 21
-    targetSdk = 35
+    minSdk = 23
+    targetSdk = 36
 
     applicationId = "com.appstractive.dnssd.androidApp"
     versionCode = 1
@@ -88,16 +88,10 @@ android {
     resources.srcDirs("src/commonMain/resources")
   }
   compileOptions {
-    isCoreLibraryDesugaringEnabled = true
-
     sourceCompatibility = JavaVersion.VERSION_1_8
     targetCompatibility = JavaVersion.VERSION_1_8
   }
   buildFeatures { compose = true }
-}
-
-dependencies {
-  coreLibraryDesugaring(libs.desugaring)
 }
 
 compose.desktop {

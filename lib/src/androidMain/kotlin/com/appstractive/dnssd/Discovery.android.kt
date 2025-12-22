@@ -5,11 +5,11 @@ import android.net.nsd.NsdServiceInfo
 import android.net.wifi.WifiManager
 import android.os.Build.VERSION
 import android.os.Build.VERSION_CODES
-import java.util.concurrent.Semaphore
-import kotlin.concurrent.thread
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import java.util.concurrent.Semaphore
+import kotlin.concurrent.thread
 
 actual fun discoverServices(type: String): Flow<DiscoveryEvent> = callbackFlow {
   val multicastLock: WifiManager.MulticastLock by lazy {
@@ -37,21 +37,7 @@ actual fun discoverServices(type: String): Flow<DiscoveryEvent> = callbackFlow {
             override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
               resolveSemaphore.release()
 
-              val service: DiscoveredService =
-                  when {
-                    VERSION.SDK_INT >= VERSION_CODES.M -> serviceInfo.toCommon()
-                    else -> {
-                      val resolvedData =
-                          MDNSDiscover.resolve(
-                              "${serviceInfo.serviceName}${serviceInfo.serviceType}".localQualified,
-                              5000,
-                          )
-
-                      val txtRecords = resolvedData?.txt?.dict?.toByteMap()
-
-                      serviceInfo.toCommon(txtRecords)
-                    }
-                  }
+              val service: DiscoveredService = serviceInfo.toCommon()
 
               trySend(
                   DiscoveryEvent.Resolved(

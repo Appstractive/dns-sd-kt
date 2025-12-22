@@ -61,7 +61,7 @@ class IosNetService(
               }
             }
           }
-        } catch (ex: TimeoutCancellationException) {
+        } catch (_: TimeoutCancellationException) {
           pendingRegister = null
           throw NetServiceRegisterException("NsdServiceInfo register timeoutInMs")
         }
@@ -158,8 +158,11 @@ actual fun createNetService(
                     port = port,
                 )
                 .apply {
-                  if (!setTXTRecordData(
-                      NSNetService.dataFromTXTRecordDictionary(txt.mapValues { it.value }),)) {
+                  if (
+                      !setTXTRecordData(
+                          NSNetService.dataFromTXTRecordDictionary(txt.mapValues { it.value }),
+                      )
+                  ) {
                     throw NetServiceRegisterException("Failed to set txt attributes: $txt")
                   }
                 },
