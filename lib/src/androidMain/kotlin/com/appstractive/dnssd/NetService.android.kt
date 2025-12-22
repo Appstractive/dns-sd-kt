@@ -4,17 +4,20 @@ import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.os.Build.VERSION
 import android.os.Build.VERSION_CODES
-import java.net.InetAddress
-import java.net.NetworkInterface
-import kotlin.coroutines.Continuation
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
+import android.util.Log
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
+import java.net.InetAddress
+import java.net.NetworkInterface
+import kotlin.coroutines.Continuation
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+
+private const val LOG_TAG = "DNS_SD_SERVICE"
 
 class AndroidNetService(
     private val nativeService: NsdServiceInfo,
@@ -38,6 +41,10 @@ class AndroidNetService(
   private var pendingUnregister: Continuation<Unit>? = null
 
   private val mutex = Mutex()
+
+  init {
+      checkLocalNetworkPermission()
+  }
 
   override suspend fun register(timeoutInMs: Long) =
       mutex.withLock {
@@ -75,6 +82,7 @@ class AndroidNetService(
       }
 
   override fun onServiceRegistered(serviceInfo: NsdServiceInfo) {
+    Log.d(LOG_TAG, "onServiceRegistered($serviceInfo)")
     isRegistered.value = true
     pendingRegister?.let {
       it.resume(Unit)
@@ -83,14 +91,17 @@ class AndroidNetService(
   }
 
   override fun onRegistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
+    Log.e(LOG_TAG, "onRegistrationFailed($serviceInfo, $errorCode)")
     pendingRegister?.let {
       pendingRegister = null
       it.resumeWithException(
-          NetServiceRegisterException("NsdServiceInfo register error $errorCode"))
+          NetServiceRegisterException("NsdServiceInfo register error $errorCode")
+      )
     }
   }
 
   override fun onServiceUnregistered(serviceInfo: NsdServiceInfo) {
+    Log.d(LOG_TAG, "onServiceUnregistered($serviceInfo)")
     isRegistered.value = false
     pendingUnregister?.let {
       pendingUnregister = null
@@ -99,10 +110,12 @@ class AndroidNetService(
   }
 
   override fun onUnregistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
+    Log.e(LOG_TAG, "onUnregistrationFailed($serviceInfo, $errorCode)")
     pendingUnregister?.let {
       pendingUnregister = null
       it.resumeWithException(
-          NetServiceRegisterException("NsdServiceInfo unregister error $errorCode"))
+          NetServiceRegisterException("NsdServiceInfo unregister error $errorCode")
+      )
     }
   }
 }
@@ -114,7 +127,7 @@ actual fun createNetService(
     priority: Int,
     weight: Int,
     addresses: List<String>?,
-    txt: Map<String, String>
+    txt: Map<String, String>,
 ): NetService =
     AndroidNetService(
         nativeService =
@@ -133,12 +146,14 @@ actual fun createNetService(
             },
     )
 
-private fun getLocalAddresses(): List<InetAddress> = buildList {
-  val interfaces = NetworkInterface.getNetworkInterfaces()
+private fun getLocalAddresses(): List<InetAddress> =
+    buildList {
+          val interfaces = NetworkInterface.getNetworkInterfaces()
 
-  for (netInterface in interfaces) {
-    addAll(
-        netInterface.inetAddresses.toList().filter { it.isSiteLocalAddress }.toList(),
-    )
-  }
-}
+          for (netInterface in interfaces) {
+            addAll(
+                netInterface.inetAddresses.toList().filter { it.isSiteLocalAddress }.toList(),
+            )
+          }
+        }
+        .also { Log.d(LOG_TAG, "createNetService with addresses: $it") }
