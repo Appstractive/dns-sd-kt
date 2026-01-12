@@ -39,7 +39,7 @@ kotlin {
     version = "1.0"
     summary = "app"
     homepage = "not published"
-    ios.deploymentTarget = "14.1"
+    ios.deploymentTarget = "15.0"
     podfile = project.file("../iosApp/Podfile")
   }
 
