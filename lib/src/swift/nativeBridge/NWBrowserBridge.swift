@@ -10,7 +10,7 @@ import Network
 }
 
 // MARK: - NWBrowserBridge
-
+@available(iOS 14.0, macOS 11.0, tvOS 14.0, *)
 @objc(NWBrowserBridge) public class NWBrowserBridge: NSObject {
     
     private var browser: NWBrowser?
