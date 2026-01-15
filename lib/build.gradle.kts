@@ -1,5 +1,8 @@
+@file:OptIn(ExperimentalSpmForKmpFeature::class)
+
 import com.android.build.api.dsl.androidLibrary
 import io.github.frankois944.spmForKmp.swiftPackageConfig
+import io.github.frankois944.spmForKmp.utils.ExperimentalSpmForKmpFeature
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.tasks
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
@@ -36,9 +39,9 @@ kotlin {
           tvosSimulatorArm64(),
       ).forEach { target -> target.swiftPackageConfig(cinteropName =
       "nativeBridge") {
-      minIos = "13.0"
+      minIos = "15.0"
       minMacos = "10.15"
-      minTvos = "13.0"
+      minTvos = "15.0"
 
   } }
 
