@@ -6,6 +6,7 @@ import kotlinx.cinterop.usePinned
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import nativeBridge.NWBrowserBridge
 import platform.Foundation.NSData
 import platform.Foundation.NSLog
 import platform.posix.memcpy
@@ -94,6 +95,11 @@ actual fun discoverServices(type: String): Flow<DiscoveryEvent> = callbackFlow {
         },
         onError = { error ->
             NSLog("NWBrowser error: $error")
+        },
+        triggerPermissionPrompt = true,
+        waitingStateTimeout = 5.0,
+        onPermissionStateChanged = { state ->
+            NSLog("NWBrowser permission state changed: $state")
         }
     )
 

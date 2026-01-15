@@ -16,6 +16,7 @@ import Network
     private var browser: NWBrowser?
     private var serviceQueue: DispatchQueue
     private var activeConnections: [String: NWConnection] = [:]
+    private var discoveredResults: [String: NWBrowser.Result] = [:]
     private var waitingStateTimer: DispatchWorkItem?
     private var permissionTrigger: LocalNetworkPermissionTrigger?
 
@@ -28,20 +29,19 @@ import Network
         serviceType: String,
         domain: String?,
         triggerPermissionPrompt: Bool = false,
-        waitingStateTimeout: TimeInterval = -1,
+        waitingStateTimeout: TimeInterval = 5,
         onServiceFound: @escaping (String, String, String) -> Void,
         onServiceRemoved: @escaping (String) -> Void,
         onError: @escaping (String) -> Void,
         onPermissionStateChanged: ((PermissionState) -> Void)? = nil
     ) {
         let domainToUse = domain ?? "local."
-        let actualTimeout: TimeInterval? = waitingStateTimeout > 0 ? waitingStateTimeout : nil
 
         let startBrowsingInternal = { [weak self] in
             self?.startBrowsingInternal(
                 serviceType: serviceType,
                 domain: domainToUse,
-                waitingStateTimeout: actualTimeout,
+                waitingStateTimeout: waitingStateTimeout,
                 onServiceFound: onServiceFound,
                 onServiceRemoved: onServiceRemoved,
                 onError: onError,
@@ -123,20 +123,30 @@ import Network
             }
         }
 
-        browser?.browseResultsChangedHandler = { results, changes in
+        browser?.browseResultsChangedHandler = { [weak self] results, changes in
             for change in changes {
                 switch change {
                 case .added(let result):
                     if case .service(let name, let type, let domain, _) = result.endpoint {
+                        let key = "\(name).\(type).\(domain)"
+                        self?.discoveredResults[key] = result
                         onServiceFound(name, type, domain)
                     }
                 case .removed(let result):
-                    if case .service(let name, _, _, _) = result.endpoint {
+                    if case .service(let name, let type, let domain, _) = result.endpoint {
+                        let key = "\(name).\(type).\(domain)"
+                        self?.discoveredResults.removeValue(forKey: key)
                         onServiceRemoved(name)
                     }
-                case .changed(_, let new, _):
-                    // Handle service changes if needed
+                case .changed(let old, let new, _):
+                    // Remove old result and add new one
+                    if case .service(let oldName, let oldType, let oldDomain, _) = old.endpoint {
+                        let oldKey = "\(oldName).\(oldType).\(oldDomain)"
+                        self?.discoveredResults.removeValue(forKey: oldKey)
+                    }
                     if case .service(let name, let type, let domain, _) = new.endpoint {
+                        let key = "\(name).\(type).\(domain)"
+                        self?.discoveredResults[key] = new
                         onServiceFound(name, type, domain)
                     }
                 case .identical:
@@ -165,6 +175,9 @@ import Network
             connection.cancel()
         }
         activeConnections.removeAll()
+
+        // Clear discovered results cache
+        discoveredResults.removeAll()
     }
 
     @objc public func resolveService(
@@ -174,50 +187,83 @@ import Network
         onResolved: @escaping (String, [String], Int, String, [String: Data]) -> Void,
         onError: @escaping (String) -> Void
     ) {
-        let endpoint = NWEndpoint.service(name: name, type: type, domain: domain, interface: nil)
-
-        let params = NWParameters()
-        params.includePeerToPeer = true
-
-        let connection = NWConnection(to: endpoint, using: params)
         let connectionKey = "\(name).\(type).\(domain)"
-        activeConnections[connectionKey] = connection
+        
+        
+        serviceQueue.async { [weak self] in guard let self = self else {return }
+            let cachedResult: NWBrowser.Result? = self.discoveredResults[connectionKey]
+            
+            // Extract TXT records from cached result if available
+            let txtRecords = cachedResult.map { self.extractTXTRecords(from: $0) } ?? [:]
 
-        connection.stateUpdateHandler = { [weak self] state in
-            switch state {
-            case .ready:
-                // Extract endpoint information
-                if let innerEndpoint = connection.currentPath?.remoteEndpoint {
-                    self?.extractServiceInfo(
-                        from: innerEndpoint,
-                        name: name,
-                        type: type,
-                        domain: domain,
-                        onResolved: onResolved,
-                        onError: onError
-                    )
-                } else {
-                    onError("Could not get endpoint information")
-                }
-
-                // Clean up connection
-                connection.cancel()
-                self?.activeConnections.removeValue(forKey: connectionKey)
-
-            case .failed(let error):
-                onError("Resolution failed: \(error.localizedDescription)")
-                connection.cancel()
-                self?.activeConnections.removeValue(forKey: connectionKey)
-
-            case .waiting(let error):
-                onError("Resolution waiting: \(error.localizedDescription)")
-
-            default:
-                break
+            // Use cached endpoint if available, otherwise construct from strings
+            let endpoint: NWEndpoint
+            if let result = cachedResult {
+                endpoint = result.endpoint
+            } else {
+                // Fallback: construct endpoint from strings (may have Port 0 issue)
+                endpoint = NWEndpoint.service(name: name, type: type, domain: domain, interface: nil)
             }
-        }
 
-        connection.start(queue: serviceQueue)
+            let params = NWParameters()
+            params.includePeerToPeer = true
+
+            let connection = NWConnection(to: endpoint, using: params)
+            activeConnections[connectionKey] = connection
+
+            connection.stateUpdateHandler = { [weak self] state in
+                switch state {
+                case .ready:
+                    // Extract endpoint information
+                    if let innerEndpoint = connection.currentPath?.remoteEndpoint {
+                        self?.extractServiceInfo(
+                            from: innerEndpoint,
+                            name: name,
+                            type: type,
+                            domain: domain,
+                            txtRecords: txtRecords,
+                            onResolved: onResolved,
+                            onError: onError
+                        )
+                    } else {
+                        onError("Could not get endpoint information")
+                    }
+
+                    // Clean up connection
+                    connection.cancel()
+                    self?.activeConnections.removeValue(forKey: connectionKey)
+
+                case .failed(let error):
+                    onError("Resolution failed: \(error.localizedDescription)")
+                    connection.cancel()
+                    self?.activeConnections.removeValue(forKey: connectionKey)
+
+                case .waiting(let error):
+                    onError("Resolution waiting: \(error.localizedDescription)")
+
+                default:
+                    break
+                }
+            }
+
+            connection.start(queue: serviceQueue)
+            
+        }
+    }
+
+    private func extractTXTRecords(from result: NWBrowser.Result) -> [String: Data] {
+        if #available(iOS 13.0, macOS 10.15, tvOS 13.0, *),
+           case let .bonjour(txtRecord) = result.metadata {
+            var dataDict: [String: Data] = [:]
+            // Iterating over the dictionary of NWTXTRecord
+            for (key, value) in txtRecord.dictionary {
+                if let data = value.data(using: .utf8) {
+                    dataDict[key] = data
+                }
+            }
+            return dataDict
+        }
+        return [:]
     }
 
     private func extractServiceInfo(
@@ -225,6 +271,7 @@ import Network
         name: String,
         type: String,
         domain: String,
+        txtRecords: [String: Data],
         onResolved: @escaping (String, [String], Int, String, [String: Data]) -> Void,
         onError: @escaping (String) -> Void
     ) {
@@ -258,22 +305,7 @@ import Network
             break
         }
 
-        // Try to resolve TXT records
-        resolveTXTRecords(name: name, type: type, domain: domain) { txtRecords in
-            onResolved(name, addresses, port, hostname, txtRecords)
-        }
-    }
-
-    private func resolveTXTRecords(
-        name: String,
-        type: String,
-        domain: String,
-        completion: @escaping ([String: Data]) -> Void
-    ) {
-        // For now, return empty TXT records
-        // Full TXT record resolution would require DNS-SD queries or using NSNetService
-        // This can be enhanced later with DNSServiceQueryRecord or similar APIs
-        completion([:])
+        onResolved(name, addresses, port, hostname, txtRecords)
     }
 
     // MARK: - Permission Error Detection
@@ -401,4 +433,3 @@ private class LocalNetworkPermissionTrigger {
         listener?.cancel()
     }
 }
-
