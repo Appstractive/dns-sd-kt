@@ -420,6 +420,14 @@ private class LocalNetworkPermissionTrigger {
             return
         }
 
+        // Required: Set a connection handler (even if it does nothing)
+        listener?.newConnectionHandler = { connection in
+            // Just cancel any incoming connections - we only need the listener
+            // to trigger the permission prompt
+            logger.debug("New connection handler")
+            connection.cancel()
+        }
+
         listener?.stateUpdateHandler = { [weak self] state in
             guard let self = self, !self.hasCompleted else { return }
             logger.debug("Permission trigger listener state: \(String(describing: state))")
