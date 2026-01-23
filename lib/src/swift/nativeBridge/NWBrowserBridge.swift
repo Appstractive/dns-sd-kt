@@ -1,5 +1,11 @@
 import Foundation
 import Network
+import os.log
+
+// MARK: - Logging
+
+@available(iOS 14.0, macOS 11.0, tvOS 14.0, *)
+private let logger = Logger(subsystem: "com.klibs.nwbrowser", category: "NWBrowserBridge")
 
 // MARK: - Permission State Enum
 
@@ -23,6 +29,7 @@ import Network
     public override init() {
         self.serviceQueue = DispatchQueue(label: "com.klibs.nwbrowser", qos: .userInitiated)
         super.init()
+        logger.debug("NWBrowserBridge initialized")
     }
 
     @objc public func startBrowsing(
@@ -36,6 +43,7 @@ import Network
         onPermissionStateChanged: ((PermissionState) -> Void)? = nil
     ) {
         let domainToUse = domain ?? "local."
+        logger.info("startBrowsing called - serviceType: \(serviceType), domain: \(domainToUse), triggerPermissionPrompt: \(triggerPermissionPrompt)")
 
         let startBrowsingInternal = { [weak self] in
             self?.startBrowsingInternal(
@@ -50,8 +58,10 @@ import Network
         }
 
         if triggerPermissionPrompt {
+            logger.debug("Triggering permission prompt")
             permissionTrigger = LocalNetworkPermissionTrigger(queue: serviceQueue)
             permissionTrigger?.trigger { [weak self] success in
+                logger.info("Permission trigger completed - success: \(success)")
                 if success {
                     onPermissionStateChanged?(.granted)
                 } else {
@@ -74,6 +84,8 @@ import Network
         onError: @escaping (String) -> Void,
         onPermissionStateChanged: ((PermissionState) -> Void)?
     ) {
+        logger.debug("startBrowsingInternal - serviceType: \(serviceType), domain: \(domain)")
+
         let descriptor = NWBrowser.Descriptor.bonjourWithTXTRecord(type: serviceType, domain: domain)
 
         let params = NWParameters()
@@ -82,13 +94,17 @@ import Network
         browser = NWBrowser(for: descriptor, using: params)
 
         browser?.stateUpdateHandler = { [weak self] newState in
+            logger.info("Browser state changed: \(String(describing: newState))")
+
             // Cancel any pending waiting state timer
             self?.waitingStateTimer?.cancel()
             self?.waitingStateTimer = nil
 
             switch newState {
             case .failed(let error):
+                logger.error("Browser failed: \(error.localizedDescription)")
                 let isPermissionError = self?.isPermissionError(error) ?? false
+                logger.debug("Is permission error: \(isPermissionError)")
                 if isPermissionError {
                     onPermissionStateChanged?(.denied)
                     onError("Network permission denied. Please allow local network access in Settings.")
@@ -96,22 +112,28 @@ import Network
                     onError("Browser failed: \(error.localizedDescription)")
                 }
             case .ready:
+                logger.info("Browser ready - permission granted")
                 // Browser is ready, permission was granted
                 onPermissionStateChanged?(.granted)
             case .cancelled:
+                logger.debug("Browser cancelled")
                 // Browser was cancelled
                 break
             case .waiting(let error):
+                logger.warning("Browser waiting: \(error.localizedDescription)")
                 // Check for permission errors in waiting state
                 let isPermissionError = self?.isPermissionError(error) ?? false
+                logger.debug("Is permission error: \(isPermissionError)")
                 if isPermissionError {
                     onPermissionStateChanged?(.denied)
                     onError("Network permission denied. Please allow local network access in Settings.")
                 } else {
                     // Start timeout timer for transient network issues
                     if let timeout = waitingStateTimeout {
+                        logger.debug("Starting waiting state timeout: \(timeout)s")
                         let timer = DispatchWorkItem { [weak self] in
                             guard self?.browser != nil else { return }
+                            logger.error("Browser waiting state timeout reached")
                             onError("Browser waiting state timeout: \(error.localizedDescription)")
                         }
                         self?.waitingStateTimer = timer
@@ -119,22 +141,26 @@ import Network
                     }
                 }
             default:
+                logger.debug("Browser state: \(String(describing: newState))")
                 break
             }
         }
 
         browser?.browseResultsChangedHandler = { [weak self] results, changes in
+            logger.debug("Browse results changed - \(changes.count) changes")
             for change in changes {
                 switch change {
                 case .added(let result):
                     if case .service(let name, let type, let domain, _) = result.endpoint {
                         let key = "\(name).\(type).\(domain)"
+                        logger.info("Service added: \(key)")
                         self?.discoveredResults[key] = result
                         onServiceFound(name, type, domain)
                     }
                 case .removed(let result):
                     if case .service(let name, let type, let domain, _) = result.endpoint {
                         let key = "\(name).\(type).\(domain)"
+                        logger.info("Service removed: \(key)")
                         self?.discoveredResults.removeValue(forKey: key)
                         onServiceRemoved(name)
                     }
@@ -142,10 +168,12 @@ import Network
                     // Remove old result and add new one
                     if case .service(let oldName, let oldType, let oldDomain, _) = old.endpoint {
                         let oldKey = "\(oldName).\(oldType).\(oldDomain)"
+                        logger.debug("Service changed - removing old: \(oldKey)")
                         self?.discoveredResults.removeValue(forKey: oldKey)
                     }
                     if case .service(let name, let type, let domain, _) = new.endpoint {
                         let key = "\(name).\(type).\(domain)"
+                        logger.info("Service changed - adding new: \(key)")
                         self?.discoveredResults[key] = new
                         onServiceFound(name, type, domain)
                     }
@@ -153,15 +181,18 @@ import Network
                     // No change needed
                     break
                 @unknown default:
+                    logger.warning("Unknown browse result change")
                     break
                 }
             }
         }
 
+        logger.debug("Starting browser")
         browser?.start(queue: serviceQueue)
     }
 
     @objc public func stop() {
+        logger.info("Stopping NWBrowserBridge")
         waitingStateTimer?.cancel()
         waitingStateTimer = nil
 
@@ -171,13 +202,16 @@ import Network
         browser = nil
 
         // Cancel all active connections
-        for (_, connection) in activeConnections {
+        logger.debug("Cancelling \(self.activeConnections.count) active connections")
+        for (key, connection) in activeConnections {
+            logger.debug("Cancelling connection: \(key)")
             connection.cancel()
         }
         activeConnections.removeAll()
 
         // Clear discovered results cache
         discoveredResults.removeAll()
+        logger.debug("NWBrowserBridge stopped")
     }
 
     @objc public func resolveService(
@@ -188,34 +222,41 @@ import Network
         onError: @escaping (String) -> Void
     ) {
         let connectionKey = "\(name).\(type).\(domain)"
-        
-        
+        logger.info("Resolving service: \(connectionKey)")
+
         serviceQueue.async { [weak self] in guard let self = self else {return }
             let cachedResult: NWBrowser.Result? = self.discoveredResults[connectionKey]
-            
+            logger.debug("Cached result found: \(cachedResult != nil)")
+
             // Extract TXT records from cached result if available
             let txtRecords = cachedResult.map { self.extractTXTRecords(from: $0) } ?? [:]
+            logger.debug("TXT records: \(txtRecords.keys.joined(separator: ", "))")
 
             // Use cached endpoint if available, otherwise construct from strings
             let endpoint: NWEndpoint
             if let result = cachedResult {
                 endpoint = result.endpoint
+                logger.debug("Using cached endpoint")
             } else {
                 // Fallback: construct endpoint from strings (may have Port 0 issue)
                 endpoint = NWEndpoint.service(name: name, type: type, domain: domain, interface: nil)
+                logger.debug("Constructed endpoint from strings")
             }
 
             let params = NWParameters()
             params.includePeerToPeer = true
 
             let connection = NWConnection(to: endpoint, using: params)
-            activeConnections[connectionKey] = connection
+            self.activeConnections[connectionKey] = connection
 
             connection.stateUpdateHandler = { [weak self] state in
+                logger.debug("Resolution connection state: \(String(describing: state))")
                 switch state {
                 case .ready:
+                    logger.info("Resolution connection ready")
                     // Extract endpoint information
                     if let innerEndpoint = connection.currentPath?.remoteEndpoint {
+                        logger.debug("Remote endpoint: \(String(describing: innerEndpoint))")
                         self?.extractServiceInfo(
                             from: innerEndpoint,
                             name: name,
@@ -226,6 +267,7 @@ import Network
                             onError: onError
                         )
                     } else {
+                        logger.error("Could not get endpoint information")
                         onError("Could not get endpoint information")
                     }
 
@@ -234,11 +276,13 @@ import Network
                     self?.activeConnections.removeValue(forKey: connectionKey)
 
                 case .failed(let error):
+                    logger.error("Resolution failed: \(error.localizedDescription)")
                     onError("Resolution failed: \(error.localizedDescription)")
                     connection.cancel()
                     self?.activeConnections.removeValue(forKey: connectionKey)
 
                 case .waiting(let error):
+                    logger.warning("Resolution waiting: \(error.localizedDescription)")
                     onError("Resolution waiting: \(error.localizedDescription)")
 
                 default:
@@ -246,8 +290,9 @@ import Network
                 }
             }
 
-            connection.start(queue: serviceQueue)
-            
+            logger.debug("Starting resolution connection")
+            connection.start(queue: self.serviceQueue)
+
         }
     }
 
@@ -261,6 +306,7 @@ import Network
                     dataDict[key] = data
                 }
             }
+            logger.debug("Extracted \(dataDict.count) TXT records")
             return dataDict
         }
         return [:]
@@ -305,6 +351,7 @@ import Network
             break
         }
 
+        logger.info("Service resolved - name: \(name), hostname: \(hostname), port: \(port), addresses: \(addresses)")
         onResolved(name, addresses, port, hostname, txtRecords)
     }
 
@@ -316,17 +363,23 @@ import Network
     private func isPermissionError(_ error: NWError) -> Bool {
         switch error {
         case .posix(let code) where code == .EPERM:
+            logger.debug("Permission error: POSIX EPERM")
             return true
         case .dns(let dnsError):
             // kDNSServiceErr_NoAuth = -65555
             // kDNSServiceErr_PolicyDenied = -65570
-            return dnsError == -65555 || dnsError == -65570
+            let isPermError = dnsError == -65555 || dnsError == -65570
+            if isPermError {
+                logger.debug("Permission error: DNS \(dnsError)")
+            }
+            return isPermError
         default:
             return false
         }
     }
 
     deinit {
+        logger.debug("NWBrowserBridge deinit")
         stop()
     }
 }
@@ -346,6 +399,7 @@ private class LocalNetworkPermissionTrigger {
 
     init(queue: DispatchQueue) {
         self.queue = queue
+        logger.debug("LocalNetworkPermissionTrigger initialized")
     }
 
     /// Triggers the local network permission dialog
@@ -354,25 +408,30 @@ private class LocalNetworkPermissionTrigger {
         do {
             // Use a random high port to avoid conflicts
             let port = NWEndpoint.Port(rawValue: UInt16.random(in: 49152...65535)) ?? NWEndpoint.Port(rawValue: 49152)!
+            logger.debug("Permission trigger using port: \(port.rawValue)")
 
             let params = NWParameters.udp
             params.includePeerToPeer = true
 
             listener = try NWListener(using: params, on: port)
         } catch {
+            logger.error("Failed to create listener: \(error.localizedDescription)")
             completion(false)
             return
         }
 
         listener?.stateUpdateHandler = { [weak self] state in
             guard let self = self, !self.hasCompleted else { return }
+            logger.debug("Permission trigger listener state: \(String(describing: state))")
 
             switch state {
             case .ready:
                 // Listener is ready, permission was granted
+                logger.info("Permission trigger: listener ready - permission granted")
                 self.complete(success: true, completion: completion)
             case .failed(let error):
                 // Check if it's a permission error
+                logger.error("Permission trigger: listener failed - \(error.localizedDescription)")
                 let isPermissionError = self.isListenerPermissionError(error)
                 self.complete(success: !isPermissionError, completion: completion)
             case .cancelled:
@@ -380,6 +439,7 @@ private class LocalNetworkPermissionTrigger {
                 break
             case .waiting(let error):
                 // Check for permission errors in waiting state
+                logger.warning("Permission trigger: listener waiting - \(error.localizedDescription)")
                 if self.isListenerPermissionError(error) {
                     self.complete(success: false, completion: completion)
                 }
@@ -394,17 +454,20 @@ private class LocalNetworkPermissionTrigger {
             guard let self = self, !self.hasCompleted else { return }
             // Timeout reached without clear permission result
             // Assume permission was not granted
+            logger.warning("Permission trigger timeout reached")
             self.complete(success: false, completion: completion)
         }
         timeoutWorkItem = timeout
         queue.asyncAfter(deadline: .now() + triggerTimeout, execute: timeout)
 
+        logger.debug("Starting permission trigger listener")
         listener?.start(queue: queue)
     }
 
     private func complete(success: Bool, completion: @escaping (Bool) -> Void) {
         guard !hasCompleted else { return }
         hasCompleted = true
+        logger.debug("Permission trigger completed: \(success)")
 
         timeoutWorkItem?.cancel()
         timeoutWorkItem = nil
@@ -429,6 +492,7 @@ private class LocalNetworkPermissionTrigger {
     }
 
     deinit {
+        logger.debug("LocalNetworkPermissionTrigger deinit")
         timeoutWorkItem?.cancel()
         listener?.cancel()
     }
