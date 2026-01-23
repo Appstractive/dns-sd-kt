@@ -243,7 +243,15 @@ private let logger = Logger(subsystem: "com.klibs.nwbrowser", category: "NWBrows
                 logger.debug("Constructed endpoint from strings")
             }
 
-            let params = NWParameters()
+            // Determine protocol from service type
+            let params: NWParameters
+            if type.lowercased().contains("._udp") {
+                params = NWParameters.udp
+                logger.debug("Using UDP parameters")
+            } else {
+                params = NWParameters.tcp
+                logger.debug("Using TCP parameters")
+            }
             params.includePeerToPeer = true
 
             let connection = NWConnection(to: endpoint, using: params)
