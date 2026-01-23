@@ -99,7 +99,8 @@ actual fun discoverServices(type: String): Flow<DiscoveryEvent> = callbackFlow {
         triggerPermissionPrompt = true,
         waitingStateTimeout = 5.0,
         onPermissionStateChanged = { state ->
-            NSLog("NWBrowser permission state changed: $state")
+            val permission = PermissionState.fromValue(state)
+            NSLog("NWBrowser permission state changed: $permission")
         }
     )
 
@@ -116,5 +117,15 @@ private fun NSData.toByteArray(): ByteArray? {
 
     return ByteArray(this@toByteArray.length.toInt()).apply {
         usePinned { memcpy(it.addressOf(0), this@toByteArray.bytes, this@toByteArray.length) }
+    }
+}
+
+enum class PermissionState(val value: Long) {
+    UNDETERMINED(0L),
+    GRANTED(1L),
+    DENIED(2L);
+
+    companion object {
+        fun fromValue(value: Long): PermissionState = entries.find { it.value == value } ?: UNDETERMINED
     }
 }
