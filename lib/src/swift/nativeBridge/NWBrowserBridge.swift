@@ -18,7 +18,7 @@ private let logger = Logger(subsystem: "com.klibs.nwbrowser", category: "NWBrows
 // MARK: - NWBrowserBridge
 @available(iOS 14.0, macOS 11.0, tvOS 14.0, *)
 @objc(NWBrowserBridge) public class NWBrowserBridge: NSObject {
-    
+
     private var browser: NWBrowser?
     private var serviceQueue: DispatchQueue
     private var activeConnections: [String: NWConnection] = [:]
@@ -333,6 +333,7 @@ private let logger = Logger(subsystem: "com.klibs.nwbrowser", category: "NWBrows
         var port: Int = 0
         var hostname: String = ""
 
+
         switch endpoint {
         case .hostPort(let host, let portValue):
             // Extract hostname
@@ -340,11 +341,21 @@ private let logger = Logger(subsystem: "com.klibs.nwbrowser", category: "NWBrows
             case .name(let hostName, _):
                 hostname = hostName
             case .ipv4(let ipv4):
-                hostname = ipv4.debugDescription
-                addresses.append(ipv4.debugDescription)
+                var addr = "\(ipv4)"
+                // Remove scope identifier (e.g., "%en0") if present
+                if let percentIndex = addr.firstIndex(of: "%") {
+                    addr = String(addr[..<percentIndex])
+                }
+                hostname = addr
+                addresses.append(addr)
             case .ipv6(let ipv6):
-                hostname = ipv6.debugDescription
-                addresses.append(ipv6.debugDescription)
+                var addr = "\(ipv6)"
+                // Remove scope identifier (e.g., "%en0") if present
+                if let percentIndex = addr.firstIndex(of: "%") {
+                    addr = String(addr[..<percentIndex])
+                }
+                hostname = addr
+                addresses.append(addr)
             @unknown default:
                 break
             }
