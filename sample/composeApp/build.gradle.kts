@@ -3,7 +3,6 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
   alias(libs.plugins.multiplatform)
-  kotlin("native.cocoapods")
   alias(libs.plugins.compose)
   alias(libs.plugins.compose.compiler)
   alias(libs.plugins.android.application)
@@ -34,14 +33,6 @@ kotlin {
           isStatic = true
         }
       }
-
-  cocoapods {
-    version = "1.0"
-    summary = "app"
-    homepage = "not published"
-    ios.deploymentTarget = "15.0"
-    podfile = project.file("../iosApp/Podfile")
-  }
 
   sourceSets {
     all { languageSettings { optIn("org.jetbrains.compose.resources.ExperimentalResourceApi") } }
