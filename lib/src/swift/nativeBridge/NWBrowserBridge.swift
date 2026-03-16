@@ -25,6 +25,9 @@ private let logger = Logger(subsystem: "com.klibs.nwbrowser", category: "NWBrows
     private var discoveredResults: [String: NWBrowser.Result] = [:]
     private var waitingStateTimer: DispatchWorkItem?
     private var permissionTrigger: LocalNetworkPermissionTrigger?
+    private var resolutionTimers: [String: DispatchWorkItem] = [:]
+    private let resolutionTimeout: TimeInterval = 5.0
+
 
     public override init() {
         self.serviceQueue = DispatchQueue(label: "com.klibs.nwbrowser", qos: .userInitiated)
@@ -212,6 +215,11 @@ private let logger = Logger(subsystem: "com.klibs.nwbrowser", category: "NWBrows
         // Clear discovered results cache
         discoveredResults.removeAll()
         logger.debug("NWBrowserBridge stopped")
+
+        for (_, timer) in resolutionTimers {
+            timer.cancel()
+        }
+        resolutionTimers.removeAll()
     }
 
     @objc public func resolveService(
@@ -261,6 +269,8 @@ private let logger = Logger(subsystem: "com.klibs.nwbrowser", category: "NWBrows
                 logger.debug("Resolution connection state: \(String(describing: state))")
                 switch state {
                 case .ready:
+                    self?.resolutionTimers[connectionKey]?.cancel()
+                    self?.resolutionTimers.removeValue(forKey: connectionKey)
                     logger.info("Resolution connection ready")
                     // Extract endpoint information
                     if let innerEndpoint = connection.currentPath?.remoteEndpoint {
@@ -285,21 +295,42 @@ private let logger = Logger(subsystem: "com.klibs.nwbrowser", category: "NWBrows
 
                 case .failed(let error):
                     logger.error("Resolution failed: \(error.localizedDescription)")
+                    self?.resolutionTimers[connectionKey]?.cancel()
+                    self?.resolutionTimers.removeValue(forKey: connectionKey)
+                    logger.info("Returning partial resolution for: \(connectionKey)")
+                    onResolved(name, [], 0, "", txtRecords)
                     onError("Resolution failed: \(error.localizedDescription)")
                     connection.cancel()
                     self?.activeConnections.removeValue(forKey: connectionKey)
 
                 case .waiting(let error):
                     logger.warning("Resolution waiting: \(error.localizedDescription)")
-                    onError("Resolution waiting: \(error.localizedDescription)")
+                    self?.resolutionTimers[connectionKey]?.cancel()
+                    self?.resolutionTimers.removeValue(forKey: connectionKey)
+                    logger.info("Returning partial resolution for: \(connectionKey)")
+                    onResolved(name, [], 0, "", txtRecords)
 
                 default:
+                    logger.warning("Connection state: \(String(describing: state))")
                     break
                 }
             }
 
             logger.debug("Starting resolution connection")
             connection.start(queue: self.serviceQueue)
+
+            // start resolution timeout timer and call onResolve with partial information on timeout
+            let resolutionTimer = DispatchWorkItem { [weak self] in
+                guard let self = self else { return }
+                logger.warning("Resolution timed out for: \(connectionKey)")
+                logger.info("Returning partial resolution for: \(connectionKey)")
+                onResolved(name, [], 0, "", txtRecords)
+                self.activeConnections[connectionKey]?.cancel()
+                self.activeConnections.removeValue(forKey: connectionKey)
+                self.resolutionTimers.removeValue(forKey: connectionKey)
+            }
+            self.resolutionTimers[connectionKey] = resolutionTimer
+            self.serviceQueue.asyncAfter(deadline: .now() + resolutionTimeout, execute: resolutionTimer)
 
         }
     }
