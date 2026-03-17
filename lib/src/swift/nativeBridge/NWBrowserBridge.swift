@@ -262,7 +262,7 @@ private let logger = Logger(subsystem: "com.klibs.nwbrowser", category: "NWBrows
             }
             params.includePeerToPeer = true
 
-            let connection = NWConnection(to: endpoint, using: params)
+            let connection = NWConnection(to: endpoint, using: params) //setup an IP connection to determine IP addresses and hostname
             self.activeConnections[connectionKey] = connection
 
             connection.stateUpdateHandler = { [weak self] state in
@@ -395,8 +395,8 @@ private let logger = Logger(subsystem: "com.klibs.nwbrowser", category: "NWBrows
             port = Int(portValue.rawValue)
 
         case .service(let serviceName, _, _, _):
-            hostname = serviceName
-
+            hostname = "" //if this NWEndpoint represents a bonjour service we cannot know the hostname.
+            // Bonjour does not guarantee the hostname and IPs to stay the same
         default:
             break
         }
