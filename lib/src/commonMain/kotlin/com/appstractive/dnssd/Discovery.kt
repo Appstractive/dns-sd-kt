@@ -11,7 +11,8 @@ data class DiscoveredService(
     val name: String,
     /** The specific ip addresses to reach the service at. May be empty, if not resolved yet. */
     val addresses: List<String>,
-    /** The host to reach the service at. May be empty on the very first discovery. */
+    /** The host to reach the service at. May be empty on the very first discovery
+     * or if no tcp/udp connection can be established when resolving the service on iOS. */
     val host: String,
     val type: String,
     val port: Int,
