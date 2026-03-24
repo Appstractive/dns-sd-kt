@@ -20,6 +20,7 @@ private let logger = Logger(subsystem: "com.klibs.nwbrowser", category: "NWBrows
 @objc(NWBrowserBridge) public class NWBrowserBridge: NSObject {
 
     private var browser: NWBrowser?
+    private var resolver: AsyncDNSResolver = AsyncDNSResolver()
     private var serviceQueue: DispatchQueue
     private var activeConnections: [String: NWConnection] = [:]
     private var discoveredResults: [String: NWBrowser.Result] = [:]
@@ -232,103 +233,48 @@ private let logger = Logger(subsystem: "com.klibs.nwbrowser", category: "NWBrows
         let connectionKey = "\(name).\(type).\(domain)"
         logger.info("Resolving service: \(connectionKey)")
 
-        serviceQueue.async { [weak self] in guard let self = self else {return }
-            let cachedResult: NWBrowser.Result? = self.discoveredResults[connectionKey]
-            logger.debug("Cached result found: \(cachedResult != nil)")
+        Task {
+            await withTaskGroup(of: Void.self) { taskGroup in
+                do {
+                    let cachedResult: NWBrowser.Result? = self.discoveredResults[connectionKey]
+                    let srvRecords = try! await self.resolver.querySRV(name: connectionKey)
+                    let txtRecords = cachedResult.map {
+                        self.extractTXTRecords(from: $0)
+                    } ?? [:]
 
-            // Extract TXT records from cached result if available
-            let txtRecords = cachedResult.map { self.extractTXTRecords(from: $0) } ?? [:]
-            logger.debug("TXT records: \(txtRecords.keys.joined(separator: ", "))")
+                    logger.debug("\(name) SRVRecords: \(srvRecords)")
 
-            // Use cached endpoint if available, otherwise construct from strings
-            let endpoint: NWEndpoint
-            if let result = cachedResult {
-                endpoint = result.endpoint
-                logger.debug("Using cached endpoint")
-            } else {
-                // Fallback: construct endpoint from strings (may have Port 0 issue)
-                endpoint = NWEndpoint.service(name: name, type: type, domain: domain, interface: nil)
-                logger.debug("Constructed endpoint from strings")
-            }
+                    var addresses: [String] = []
 
-            // Determine protocol from service type
-            let params: NWParameters
-            if type.lowercased().contains("._udp") {
-                params = NWParameters.udp
-                logger.debug("Using UDP parameters")
-            } else {
-                params = NWParameters.tcp
-                logger.debug("Using TCP parameters")
-            }
-            params.includePeerToPeer = true
+                    for record in srvRecords {
+                        taskGroup.addTask {
+                            let aRecords = try! await self.resolver.queryA(name: record.host)
 
-            let connection = NWConnection(to: endpoint, using: params) //setup an IP connection to determine IP addresses and hostname
-            self.activeConnections[connectionKey] = connection
+                            logger.debug("\(name) ARecords: \(aRecords)")
 
-            connection.stateUpdateHandler = { [weak self] state in
-                logger.debug("resolve connection state: \(String(describing: state))")
-                switch state {
-                case .ready:
-                    self?.resolveTimers[connectionKey]?.cancel()
-                    self?.resolveTimers.removeValue(forKey: connectionKey)
-                    logger.info("resolve connection ready")
-                    // Extract endpoint information
-                    if let innerEndpoint = connection.currentPath?.remoteEndpoint {
-                        logger.debug("Remote endpoint: \(String(describing: innerEndpoint))")
-                        self?.extractServiceInfo(
-                            from: innerEndpoint,
-                            name: name,
-                            type: type,
-                            domain: domain,
-                            txtRecords: txtRecords,
-                            onResolved: onResolved,
-                            onError: onError
-                        )
-                    } else {
-                        logger.error("Could not get endpoint information")
-                        onError("Could not get endpoint information")
+                            for aRecord in aRecords {
+                                addresses.append(aRecord.address.address)
+                            }
+
+                            onResolved(name, addresses, Int(record.port), record.host, txtRecords)
+                        }
+
+                        taskGroup.addTask {
+                            let aaaaRecords = try! await self.resolver.queryAAAA(name: record.host)
+
+                            logger.debug("\(name) AAAARecords: \(aaaaRecords)")
+
+                            for aaaaRecord in aaaaRecords {
+                                addresses.append(aaaaRecord.address.address)
+                            }
+
+                            onResolved(name, addresses, Int(record.port), record.host, txtRecords)
+                        }
                     }
-
-                    // Clean up connection
-                    connection.cancel()
-                    self?.activeConnections.removeValue(forKey: connectionKey)
-
-                case .failed(let error):
-                    logger.warning("Full resolve failed: \(error.localizedDescription). Returning partial resolve")
-                    self?.resolveTimers[connectionKey]?.cancel()
-                    self?.resolveTimers.removeValue(forKey: connectionKey)
-                    onResolved(name, [], 0, "", txtRecords)
-                    onError("Could not setup a tcp/udp connection: \(error.localizedDescription)")
-                    connection.cancel()
-                    self?.activeConnections.removeValue(forKey: connectionKey)
-
-                case .waiting(let error):
-                    logger.warning("resolve waiting: \(error.localizedDescription). Returning partial resolve")
-                    self?.resolveTimers[connectionKey]?.cancel()
-                    self?.resolveTimers.removeValue(forKey: connectionKey)
-                    onResolved(name, [], 0, "", txtRecords)
-
-                default:
-                    logger.warning("Connection state changed to: \(String(describing: state))")
-                    break
+                } catch let error {
+                    onError("Error resolving service \(connectionKey): \(error.localizedDescription)")
                 }
             }
-
-            logger.debug("Setting up connection to resolve hostname and ip addresses")
-            connection.start(queue: self.serviceQueue)
-
-            // start resolve timeout timer and call onResolve with partial information on timeout
-            let resolveTimer = DispatchWorkItem { [weak self] in
-                guard let self = self else { return }
-                logger.warning("Connection for full resolve timed out for: \(connectionKey). Returning partial resolve.")
-                onResolved(name, [], 0, "", txtRecords)
-                self.activeConnections[connectionKey]?.cancel()
-                self.activeConnections.removeValue(forKey: connectionKey)
-                self.resolveTimers.removeValue(forKey: connectionKey)
-            }
-            self.resolveTimers[connectionKey] = resolveTimer
-            self.serviceQueue.asyncAfter(deadline: .now() + resolveTimeout, execute: resolveTimer)
-
         }
     }
 
@@ -346,60 +292,6 @@ private let logger = Logger(subsystem: "com.klibs.nwbrowser", category: "NWBrows
             return dataDict
         }
         return [:]
-    }
-
-    private func extractServiceInfo(
-        from endpoint: NWEndpoint,
-        name: String,
-        type: String,
-        domain: String,
-        txtRecords: [String: Data],
-        onResolved: @escaping (String, [String], Int, String, [String: Data]) -> Void,
-        onError: @escaping (String) -> Void
-    ) {
-        var addresses: [String] = []
-        var port: Int = 0
-        var hostname: String = ""
-
-
-        switch endpoint {
-        case .hostPort(let host, let portValue):
-            // Extract hostname
-            switch host {
-            case .name(let hostName, _):
-                hostname = hostName
-            case .ipv4(let ipv4):
-                var addr = "\(ipv4)"
-                // Remove scope identifier (e.g., "%en0") if present
-                if let percentIndex = addr.firstIndex(of: "%") {
-                    addr = String(addr[..<percentIndex])
-                }
-                hostname = addr
-                addresses.append(addr)
-            case .ipv6(let ipv6):
-                var addr = "\(ipv6)"
-                // Remove scope identifier (e.g., "%en0") if present
-                if let percentIndex = addr.firstIndex(of: "%") {
-                    addr = String(addr[..<percentIndex])
-                }
-                hostname = addr
-                addresses.append(addr)
-            @unknown default:
-                break
-            }
-
-            // Extract port
-            port = Int(portValue.rawValue)
-
-        case .service(let serviceName, _, _, _):
-            hostname = "" //if this NWEndpoint represents a bonjour service we cannot know the hostname.
-            // Bonjour does not guarantee the hostname and IPs to stay the same
-        default:
-            break
-        }
-
-        logger.info("Service resolved - name: \(name), hostname: \(hostname), port: \(port), addresses: \(addresses)")
-        onResolved(name, addresses, port, hostname, txtRecords)
     }
 
     // MARK: - Permission Error Detection
