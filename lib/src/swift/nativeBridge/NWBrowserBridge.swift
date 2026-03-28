@@ -22,12 +22,9 @@ private let logger = Logger(subsystem: "com.klibs.nwbrowser", category: "NWBrows
     private var browser: NWBrowser?
     private var resolver: AsyncDNSResolver = AsyncDNSResolver()
     private var serviceQueue: DispatchQueue
-    private var activeConnections: [String: NWConnection] = [:]
     private var discoveredResults: [String: NWBrowser.Result] = [:]
     private var waitingStateTimer: DispatchWorkItem?
     private var permissionTrigger: LocalNetworkPermissionTrigger?
-    private var resolveTimers: [String: DispatchWorkItem] = [:]
-    private let resolveTimeout: TimeInterval = 5.0
 
 
     public override init() {
@@ -205,22 +202,9 @@ private let logger = Logger(subsystem: "com.klibs.nwbrowser", category: "NWBrows
         browser?.cancel()
         browser = nil
 
-        // Cancel all active connections
-        logger.debug("Cancelling \(self.activeConnections.count) active connections")
-        for (key, connection) in activeConnections {
-            logger.debug("Cancelling connection: \(key)")
-            connection.cancel()
-        }
-        activeConnections.removeAll()
-
         // Clear discovered results cache
         discoveredResults.removeAll()
         logger.debug("NWBrowserBridge stopped")
-
-        for (_, timer) in resolveTimers {
-            timer.cancel()
-        }
-        resolveTimers.removeAll()
     }
 
     @objc public func resolveService(
