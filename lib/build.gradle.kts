@@ -1,9 +1,16 @@
+@file:OptIn(ExperimentalSpmForKmpFeature::class)
+
 import com.android.build.api.dsl.androidLibrary
+import io.github.frankois944.spmForKmp.swiftPackageConfig
+import io.github.frankois944.spmForKmp.utils.ExperimentalSpmForKmpFeature
+import org.gradle.kotlin.dsl.named
+import org.gradle.kotlin.dsl.tasks
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-  alias(libs.plugins.multiplatform)
-  alias(libs.plugins.android.library)
+    alias(libs.plugins.multiplatform)
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.spm4kmp)
   id("dnssd.publication")
 }
 
@@ -30,13 +37,14 @@ kotlin {
           tvosX64(),
           tvosArm64(),
           tvosSimulatorArm64(),
-      )
-      .forEach {
-        it.binaries.framework {
-          baseName = "DNS-SD-KT"
-          isStatic = true
-        }
-      }
+      ).forEach { target -> target.swiftPackageConfig(cinteropName =
+      "nativeBridge") {
+      minIos = "15.0"
+      minMacos = "10.15"
+      minTvos = "15.0"
+
+  } }
+
 
   sourceSets {
     commonMain.dependencies { implementation(libs.kotlin.coroutines) }
