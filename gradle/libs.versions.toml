@@ -18,7 +18,7 @@ android-startup = { module = "androidx.startup:startup-runtime", version.ref = "
 kotlin-coroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlin-coroutines" }
 jmdns = { module = "org.jmdns:jmdns", version = "3.6.3" }
 
-maven-publish-gradle-plugin = { module = "com.vanniktech:gradle-maven-publish-plugin", version = "0.35.0" }
+maven-publish-gradle-plugin = { module = "com.vanniktech:gradle-maven-publish-plugin", version = "0.36.0" }
 kotlin-dokka-gradle-plugin = { module = "org.jetbrains.dokka:dokka-gradle-plugin", version = "2.1.0" }
 android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
