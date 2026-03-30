@@ -6,7 +6,7 @@ agp = "8.13.2"
 androidx-appcompat = "1.7.1"
 androidx-activityCompose = "1.13.0"
 android-startup = "1.2.0"
-spm4kmp = "1.6.1"
+spm4kmp = "1.7.0"
 
 kotlin-coroutines = "1.10.2"
 
