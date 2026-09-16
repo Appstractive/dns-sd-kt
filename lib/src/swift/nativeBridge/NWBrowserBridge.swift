@@ -221,7 +221,7 @@ private let logger = Logger(subsystem: "com.klibs.nwbrowser", category: "NWBrows
             await withTaskGroup(of: Void.self) { taskGroup in
                 do {
                     let cachedResult: NWBrowser.Result? = self.discoveredResults[connectionKey]
-                    let srvRecords = try! await self.resolver.querySRV(name: connectionKey)
+                    let srvRecords = try await self.resolver.querySRV(name: connectionKey)
                     let txtRecords = cachedResult.map {
                         self.extractTXTRecords(from: $0)
                     } ?? [:]
@@ -232,27 +232,39 @@ private let logger = Logger(subsystem: "com.klibs.nwbrowser", category: "NWBrows
 
                     for record in srvRecords {
                         taskGroup.addTask {
-                            let aRecords = try! await self.resolver.queryA(name: record.host)
+                            do {
+                                let aRecords = try await self.resolver.queryA(name: record.host)
 
-                            logger.debug("\(name) ARecords: \(aRecords)")
+                                logger.debug("\(name) ARecords: \(aRecords)")
 
-                            for aRecord in aRecords {
-                                addresses.append(aRecord.address.address)
+                                for aRecord in aRecords {
+                                    addresses.append(aRecord.address.address)
+                                }
+
+                                onResolved(name, addresses, Int(record.port), record.host, txtRecords)
+                            } catch let error {
+                                // A failing address-family lookup must not end the process. The
+                                // sibling AAAA query may still resolve this host.
+                                onError("Error resolving A record for \(record.host): \(error.localizedDescription)")
                             }
-
-                            onResolved(name, addresses, Int(record.port), record.host, txtRecords)
                         }
 
                         taskGroup.addTask {
-                            let aaaaRecords = try! await self.resolver.queryAAAA(name: record.host)
+                            do {
+                                let aaaaRecords = try await self.resolver.queryAAAA(name: record.host)
 
-                            logger.debug("\(name) AAAARecords: \(aaaaRecords)")
+                                logger.debug("\(name) AAAARecords: \(aaaaRecords)")
 
-                            for aaaaRecord in aaaaRecords {
-                                addresses.append(aaaaRecord.address.address)
+                                for aaaaRecord in aaaaRecords {
+                                    addresses.append(aaaaRecord.address.address)
+                                }
+
+                                onResolved(name, addresses, Int(record.port), record.host, txtRecords)
+                            } catch let error {
+                                // A failing address-family lookup must not end the process. The
+                                // sibling A query may still resolve this host.
+                                onError("Error resolving AAAA record for \(record.host): \(error.localizedDescription)")
                             }
-
-                            onResolved(name, addresses, Int(record.port), record.host, txtRecords)
                         }
                     }
                 } catch let error {
