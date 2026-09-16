@@ -218,34 +218,32 @@ private let logger = Logger(subsystem: "com.klibs.nwbrowser", category: "NWBrows
         logger.info("Resolving service: \(connectionKey)")
 
         Task {
-            await withTaskGroup(of: Void.self) { taskGroup in
-                do {
-                    let cachedResult: NWBrowser.Result? = self.discoveredResults[connectionKey]
-                    let srvRecords = try await self.resolver.querySRV(name: connectionKey)
-                    let txtRecords = cachedResult.map {
-                        self.extractTXTRecords(from: $0)
-                    } ?? [:]
+            do {
+                let cachedResult: NWBrowser.Result? = self.discoveredResults[connectionKey]
+                let srvRecords = try await self.resolver.querySRV(name: connectionKey)
+                let txtRecords = cachedResult.map {
+                    self.extractTXTRecords(from: $0)
+                } ?? [:]
 
-                    logger.debug("\(name) SRVRecords: \(srvRecords)")
+                logger.debug("\(name) SRVRecords: \(srvRecords)")
 
-                    var addresses: [String] = []
-
-                    for record in srvRecords {
+                for record in srvRecords {
+                    // Each address family resolves in its own task and returns its own
+                    // addresses. Only the parent appends to the list, so the concurrent
+                    // queries never mutate shared state.
+                    await withTaskGroup(of: [String].self) { taskGroup in
                         taskGroup.addTask {
                             do {
                                 let aRecords = try await self.resolver.queryA(name: record.host)
 
                                 logger.debug("\(name) ARecords: \(aRecords)")
 
-                                for aRecord in aRecords {
-                                    addresses.append(aRecord.address.address)
-                                }
-
-                                onResolved(name, addresses, Int(record.port), record.host, txtRecords)
+                                return aRecords.map { $0.address.address }
                             } catch let error {
-                                // A failing address-family lookup must not end the process. The
-                                // sibling AAAA query may still resolve this host.
+                                // A failing address family must not end the process, and the
+                                // sibling query may still resolve this host.
                                 onError("Error resolving A record for \(record.host): \(error.localizedDescription)")
+                                return []
                             }
                         }
 
@@ -255,21 +253,24 @@ private let logger = Logger(subsystem: "com.klibs.nwbrowser", category: "NWBrows
 
                                 logger.debug("\(name) AAAARecords: \(aaaaRecords)")
 
-                                for aaaaRecord in aaaaRecords {
-                                    addresses.append(aaaaRecord.address.address)
-                                }
-
-                                onResolved(name, addresses, Int(record.port), record.host, txtRecords)
+                                return aaaaRecords.map { $0.address.address }
                             } catch let error {
-                                // A failing address-family lookup must not end the process. The
-                                // sibling A query may still resolve this host.
                                 onError("Error resolving AAAA record for \(record.host): \(error.localizedDescription)")
+                                return []
                             }
                         }
+
+                        // Report each family as it lands instead of waiting for both, so a
+                        // stalled lookup cannot hold back an address that already resolved.
+                        var addresses: [String] = []
+                        for await resolved in taskGroup where !resolved.isEmpty {
+                            addresses.append(contentsOf: resolved)
+                            onResolved(name, addresses, Int(record.port), record.host, txtRecords)
+                        }
                     }
-                } catch let error {
-                    onError("Error resolving service \(connectionKey): \(error.localizedDescription)")
                 }
+            } catch let error {
+                onError("Error resolving service \(connectionKey): \(error.localizedDescription)")
             }
         }
     }
