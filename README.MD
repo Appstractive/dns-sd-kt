@@ -25,7 +25,7 @@ The platform implementations are based on:
 Gradle:
 
 ```
-implementation("com.appstractive:dns-sd-kt:1.0.5")
+implementation("com.appstractive:dns-sd-kt:1.1.1")
 ```
 
 ### Permissions
