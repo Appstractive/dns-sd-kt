@@ -1,17 +1,13 @@
-@file:OptIn(ExperimentalSpmForKmpFeature::class)
-
 import com.android.build.api.dsl.androidLibrary
 import io.github.frankois944.spmForKmp.swiftPackageConfig
 import io.github.frankois944.spmForKmp.utils.ExperimentalSpmForKmpFeature
-import org.gradle.kotlin.dsl.named
-import org.gradle.kotlin.dsl.tasks
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.multiplatform)
     alias(libs.plugins.android.library)
     alias(libs.plugins.spm4kmp)
-  id("dnssd.publication")
+    id("dnssd.publication")
 }
 
 group = rootProject.group
@@ -19,45 +15,49 @@ group = rootProject.group
 version = rootProject.version
 
 kotlin {
-  androidLibrary {
-    namespace = "com.appstractive.dnssd"
-    compileSdk = 36
-    minSdk = 23
-    compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) }
-  }
-
-  jvm()
-
-  listOf(
-          iosX64(),
-          iosArm64(),
-          iosSimulatorArm64(),
-          macosX64(),
-          macosArm64(),
-          tvosX64(),
-          tvosArm64(),
-          tvosSimulatorArm64(),
-      ).forEach { target -> target.swiftPackageConfig(cinteropName =
-      "nativeBridge") {
-      minIos = "15.0"
-      minMacos = "10.15"
-      minTvos = "15.0"
-
-  } }
-
-
-  sourceSets {
-    commonMain.dependencies { implementation(libs.kotlin.coroutines) }
-
-    commonTest.dependencies { implementation(kotlin("test")) }
-
-    androidMain.dependencies {
-      implementation(libs.android.startup)
-      implementation(libs.androidx.appcompat)
+    androidLibrary {
+        namespace = "com.appstractive.dnssd"
+        compileSdk = 36
+        minSdk = 23
+        compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) }
     }
 
-    jvmMain.dependencies { api(libs.jmdns) }
+    jvm()
 
-    appleMain.dependencies {}
-  }
+    listOf(
+        iosX64(),
+        iosArm64(),
+        iosSimulatorArm64(),
+        macosX64(),
+        macosArm64(),
+        tvosX64(),
+        tvosArm64(),
+        tvosSimulatorArm64(),
+    ).forEach { target ->
+        target.swiftPackageConfig(
+            cinteropName =
+                "nativeBridge"
+        ) {
+            minIos = "15.0"
+            minMacos = "10.15"
+            minTvos = "15.0"
+
+        }
+    }
+
+
+    sourceSets {
+        commonMain.dependencies { implementation(libs.kotlin.coroutines) }
+
+        commonTest.dependencies { implementation(kotlin("test")) }
+
+        androidMain.dependencies {
+            implementation(libs.android.startup)
+            implementation(libs.androidx.appcompat)
+        }
+
+        jvmMain.dependencies { api(libs.jmdns) }
+
+        appleMain.dependencies {}
+    }
 }
