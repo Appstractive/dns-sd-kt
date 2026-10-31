@@ -9,6 +9,8 @@ import android.os.ext.SdkExtensions
 import android.util.Log
 import androidx.annotation.RequiresApi
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.currentCoroutineContext
@@ -200,6 +202,8 @@ private fun NsdServiceInfo.registerCallback(
 
 private val canUseResolveExecutor = VERSION.SDK_INT >= VERSION_CODES.R &&
         SdkExtensions.getExtensionVersion(VERSION_CODES.TIRAMISU) >= 3
+
+@OptIn(ExperimentalStdlibApi::class)
 private suspend fun NsdManager.resolveService(serviceInfo: NsdServiceInfo): DiscoveredService {
     return resolveMutex.withLock {
         val dispatcher = currentCoroutineContext()[CoroutineDispatcher]
@@ -211,8 +215,10 @@ private suspend fun NsdManager.resolveService(serviceInfo: NsdServiceInfo): Disc
                 }
 
                 override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
-                    val service: DiscoveredService = serviceInfo.toCommon()
-                    cont.resume(service)
+                    CoroutineScope(dispatcher ?: Dispatchers.IO).launch {
+                        val service: DiscoveredService = serviceInfo.toCommon()
+                        cont.resume(service)
+                    }
                 }
             }
 
